@@ -1,0 +1,38 @@
+- hosts: flask
+  become: yes
+  tasks:
+    - name: Install dependencies
+      apt:
+        name:
+          - python3
+          - python3-pip
+        update_cache: yes
+
+    - name: Install Gunicorn
+      pip:
+        name: gunicorn
+
+    - name: Create app directory
+      file:
+        path: /opt/flask-app
+        state: directory
+
+    - name: Copy archive to server
+      copy:
+        src: flask-app.tar.gz
+        dest: /opt/flask-app/
+
+    - name: Extract archive
+      unarchive:
+        src: /opt/flask-app/flask-app.tar.gz
+        dest: /opt/flask-app/
+        remote_src: yes
+
+    - name: Install Python requirements
+      pip:
+        requirements: /opt/flask-app/requirements.txt
+
+    - name: Start Flask App with Gunicorn
+      shell: |
+        pkill gunicorn || true
+        nohup gunicorn --chdir /opt/flask-app app.main:app -b 0.0.0.0:5000 &
