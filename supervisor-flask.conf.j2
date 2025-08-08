@@ -1,0 +1,11 @@
+[program:flask-app]
+command={{ app_dir }}/venv/bin/gunicorn --chdir {{ app_dir }} -w 4 -b 0.0.0.0:{{ app_port }} wsgi:app
+directory={{ app_dir }}
+user={{ app_user }}
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/flask-app.err.log
+stdout_logfile=/var/log/flask-app.out.log
+environment=
+  PATH="{{ app_dir }}/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  FLASK_ENV="production"
