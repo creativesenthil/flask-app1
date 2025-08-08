@@ -25,7 +25,7 @@ pipeline {
         stage('Build & Test') {
             steps {
                 sh '''
-                python -m venv venv
+                python3 -m venv venv
                 ./venv/bin/pip install -r requirements.txt
                 ./venv/bin/pytest || true  # Add proper test command, || true prevents failure if no tests
                 '''
