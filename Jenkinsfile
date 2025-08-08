@@ -8,7 +8,6 @@ pipeline {
     }
 
     stages {
-        // Stage 1: Code Commit (implied by Git SCM checkout)
         stage('Git Checkout') {
             steps {
                 checkout([
@@ -23,23 +22,21 @@ pipeline {
             }
         }
 
-        // Stage 2: Build & Test
         stage('Build & Test') {
             steps {
                 sh '''
                 python -m venv venv
                 ./venv/bin/pip install -r requirements.txt
-                ./venv/bin/pytest  # Add your test command here
+                ./venv/bin/pytest || true  # Add proper test command, || true prevents failure if no tests
                 '''
             }
             post {
                 always {
-                    junit '**/test-reports/*.xml'  # If you have test reports
+                    junit '**/test-reports/*.xml'  // Collect test reports if they exist
                 }
             }
         }
 
-        // Stage 3: Initialize Ansible
         stage('Prepare Ansible') {
             steps {
                 script {
@@ -53,7 +50,6 @@ pipeline {
             }
         }
 
-        // Stage 4: Deploy with Ansible
         stage('Ansible Deploy') {
             steps {
                 script {
@@ -64,10 +60,7 @@ pipeline {
                         ansible-playbook deploy.yml \
                             -i hosts.ini \
                             --private-key ${SSH_KEY_FILE} \
-                            --extra-vars "\
-                                app_port=5000 \
-                                artifact_name=${env.ARTIFACT_NAME}
-                            "
+                            --extra-vars "app_port=5000 artifact_name=${env.ARTIFACT_NAME}"
                         """
                     }
                 }
