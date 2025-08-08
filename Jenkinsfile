@@ -7,13 +7,9 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    environment {
-        APP_PORT = '5000'
-        EC2_IP = '23.22.202.254'
-    }
-
     stages {
-        stage('Checkout SCM') {
+        // Stage 1: Code Commit (implied by Git SCM checkout)
+        stage('Git Checkout') {
             steps {
                 checkout([
                     $class: 'GitSCM',
@@ -24,35 +20,44 @@ pipeline {
                         url: 'https://github.com/creativesenthil/flask-app1.git'
                     ]]
                 ])
-                script {
-                    env.COMMIT_ID = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    env.ARTIFACT_NAME = "flask-app-${env.COMMIT_ID}.tar.gz"
-                }
             }
         }
 
-        stage('Install Dependencies') {
+        // Stage 2: Build & Test
+        stage('Build & Test') {
             steps {
                 sh '''
                 python -m venv venv
                 ./venv/bin/pip install -r requirements.txt
+                ./venv/bin/pytest  # Add your test command here
                 '''
             }
-        }
-
-        stage('Package App') {
-            steps {
-                sh """
-                tar -czf ${env.ARTIFACT_NAME} app/ wsgi.py requirements.txt
-                """
+            post {
+                always {
+                    junit '**/test-reports/*.xml'  # If you have test reports
+                }
             }
         }
 
-        stage('Deploy via Ansible') {
+        // Stage 3: Initialize Ansible
+        stage('Prepare Ansible') {
+            steps {
+                script {
+                    env.COMMIT_ID = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.ARTIFACT_NAME = "flask-app-${env.COMMIT_ID}.tar.gz"
+                    
+                    sh """
+                    tar -czf ${env.ARTIFACT_NAME} app/ wsgi.py requirements.txt templates/
+                    """
+                }
+            }
+        }
+
+        // Stage 4: Deploy with Ansible
+        stage('Ansible Deploy') {
             steps {
                 script {
                     withCredentials([
-                        usernamePassword(credentialsId: 'aws-credentials', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY'),
                         sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE', usernameVariable: 'SSH_USER')
                     ]) {
                         sh """
@@ -60,10 +65,7 @@ pipeline {
                             -i hosts.ini \
                             --private-key ${SSH_KEY_FILE} \
                             --extra-vars "\
-                                aws_access_key=${AWS_ACCESS_KEY} \
-                                aws_secret_key=${AWS_SECRET_KEY} \
-                                ec2_ip=${EC2_IP} \
-                                app_port=${APP_PORT} \
+                                app_port=5000 \
                                 artifact_name=${env.ARTIFACT_NAME}
                             "
                         """
@@ -75,13 +77,10 @@ pipeline {
 
     post {
         always {
-            script {
-                currentBuild.description = "Build ${env.BUILD_NUMBER} (${env.COMMIT_ID})"
-                cleanWs()
-            }
+            cleanWs()
         }
         success {
-            echo "Successfully deployed ${env.ARTIFACT_NAME} to ${EC2_IP}"
+            echo "Successfully deployed ${env.ARTIFACT_NAME} to Tomcat server"
         }
         failure {
             echo "Build failed! Check console output for details."
