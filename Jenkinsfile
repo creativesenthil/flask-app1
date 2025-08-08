@@ -1,10 +1,16 @@
 pipeline {
     agent any
 
+    environment {
+        AWS_CREDENTIALS = credentials('aws-credentials')  // AWS creds from Jenkins
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                git 'https://your-repo-url.git'
+                git branch: 'main',
+                    credentialsId: 'github-credentials', // Replace with your GitHub credential ID
+                    url: 'https://github.com/creativesenthil/flask-app1.git'
             }
         }
 
@@ -24,7 +30,8 @@ pipeline {
             steps {
                 ansiblePlaybook(
                     playbook: 'deploy.yml',
-                    inventory: 'hosts.ini'
+                    inventory: 'hosts.ini',
+                    extras: "--extra-vars 'aws_access_key=${AWS_CREDENTIALS_USR} aws_secret_key=${AWS_CREDENTIALS_PSW}'"
                 )
             }
         }
