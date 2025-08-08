@@ -27,7 +27,8 @@ pipeline {
                 sh '''
                 python3 -m venv venv
                 ./venv/bin/pip install -r requirements.txt
-                ./venv/bin/pytest || true  # Add proper test command, || true prevents failure if no tests
+                ./venv/bin/pip install pytest
+                ./venv/bin/pytest --junitxml=test-reports/results.xml || true
                 '''
             }
             post {
