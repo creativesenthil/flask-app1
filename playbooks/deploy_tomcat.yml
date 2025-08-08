@@ -1,0 +1,37 @@
+---
+- name: Deploy Apache Tomcat
+  hosts: tomcat_servers
+  become: yes
+  tasks:
+    - name: Install Java (required by Tomcat)
+      apt:
+        name: openjdk-11-jdk
+        state: present
+        update_cache: yes
+
+    - name: Download Tomcat archive
+      get_url:
+        url: https://downloads.apache.org/tomcat/tomcat-9/v9.0.78/bin/apache-tomcat-9.0.78.tar.gz
+        dest: /tmp/apache-tomcat.tar.gz
+
+    - name: Extract Tomcat
+      unarchive:
+        src: /tmp/apache-tomcat.tar.gz
+        dest: /opt/
+        remote_src: yes
+
+    - name: Rename extracted folder
+      command: mv /opt/apache-tomcat-9.0.78 /opt/tomcat
+      args:
+        creates: /opt/tomcat
+
+    - name: Make startup scripts executable
+      file:
+        path: /opt/tomcat/bin/*.sh
+        mode: '0755'
+        state: file
+
+    - name: Start Tomcat
+      shell: nohup /opt/tomcat/bin/startup.sh &
+      args:
+        chdir: /opt/tomcat/bin
