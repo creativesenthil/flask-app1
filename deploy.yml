@@ -1,38 +1,70 @@
+---
 - hosts: flask
   become: yes
+  vars:
+    app_user: "flaskuser"
+    app_dir: "/opt/flask-app"
+    app_port: 5000
+
   tasks:
-    - name: Install dependencies
+    - name: Install system dependencies
       apt:
         name:
           - python3
           - python3-pip
+          - python3-venv
+          - supervisor  # For process management
         update_cache: yes
 
-    - name: Install Gunicorn
-      pip:
-        name: gunicorn
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        system: yes
+        create_home: no
 
     - name: Create app directory
       file:
-        path: /opt/flask-app
+        path: "{{ app_dir }}"
         state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
 
     - name: Copy archive to server
       copy:
         src: flask-app.tar.gz
-        dest: /opt/flask-app/
+        dest: "{{ app_dir }}/"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
 
     - name: Extract archive
       unarchive:
-        src: /opt/flask-app/flask-app.tar.gz
-        dest: /opt/flask-app/
+        src: "{{ app_dir }}/flask-app.tar.gz"
+        dest: "{{ app_dir }}"
         remote_src: yes
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
 
-    - name: Install Python requirements
+    - name: Create Python virtual environment
       pip:
-        requirements: /opt/flask-app/requirements.txt
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_command: python3 -m venv
 
-    - name: Start Flask App with Gunicorn
-      shell: |
-        pkill gunicorn || true
-        nohup gunicorn --chdir /opt/flask-app app.main:app -b 0.0.0.0:5000 &
+    - name: Configure Supervisor
+      template:
+        src: templates/supervisor-flask.conf.j2
+        dest: /etc/supervisor/conf.d/flask-app.conf
+      notify: Restart Supervisor
+
+    - name: Ensure Supervisor is running
+      service:
+        name: supervisor
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Restart Supervisor
+      service:
+        name: supervisor
+        state: restarted
