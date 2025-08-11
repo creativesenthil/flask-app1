@@ -26,7 +26,14 @@
         creates: /opt/tomcat
 
     - name: Make startup scripts executable
-      shell: chmod +x /opt/tomcat/bin/*.sh
+      file:
+        path: "{{ item }}"
+        mode: '0755'
+        state: file
+      loop:
+        - /opt/tomcat/bin/startup.sh
+        - /opt/tomcat/bin/shutdown.sh
+        - /opt/tomcat/bin/version.sh
 
     - name: Start Tomcat
       shell: nohup /opt/tomcat/bin/startup.sh &
