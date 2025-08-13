@@ -19,11 +19,19 @@
         src: /tmp/apache-tomcat.tar.gz
         dest: /opt/
         remote_src: yes
+        creates: /opt/apache-tomcat-9.0.78
 
     - name: Rename extracted folder
       command: mv /opt/apache-tomcat-9.0.78 /opt/tomcat
       args:
         creates: /opt/tomcat
+
+    - name: Set ownership
+      file:
+        path: /opt/tomcat
+        owner: tomcat
+        group: tomcat
+        recurse: yes
 
     - name: Make startup scripts executable
       file:
@@ -33,7 +41,7 @@
       loop:
         - /opt/tomcat/bin/startup.sh
         - /opt/tomcat/bin/shutdown.sh
-        - /opt/tomcat/bin/version.sh
+        - /opt/tomcat/bin/catalina.sh
 
     - name: Start Tomcat
       shell: nohup /opt/tomcat/bin/startup.sh &
